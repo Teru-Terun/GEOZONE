@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { filterCandidatePlaces } from '../services/planner/candidateFilter.js';
 import { scorePlaces } from '../services/planner/placeScorer.js';
 import { groupPlacesByZone } from '../services/planner/zoneGrouper.js';
@@ -77,21 +78,33 @@ export class PlanController {
         totalBudget,
         actual_cost,
         actualCost,
+        status,
         strategy_used,
         strategyUsed,
         plan_data,
-        planData
+        planData,
+        share_token,
+        shareToken,
+        is_public,
+        isPublic
       } = req.body;
 
       const rawPlanData = plan_data || planData;
       if (!rawPlanData) {
         return res.status(400).json({
           success: false,
+          message: 'Dữ liệu lịch trình (planData) không được để trống',
           error: { message: 'Dữ liệu lịch trình (planData) không được để trống' }
         });
       }
 
       const defaultTitle = (title || planTitle)?.trim() || `Chuyến du lịch ${city || 'Đà Nẵng'} ${total_days || totalDays || 2} ngày`;
+
+      const isPublicBool = Boolean(is_public ?? isPublic ?? false);
+      let finalShareToken = share_token || shareToken || null;
+      if (isPublicBool && !finalShareToken) {
+        finalShareToken = crypto.randomBytes(16).toString('hex');
+      }
 
       const saved = await prisma.savedPlan.create({
         data: {
@@ -101,9 +114,11 @@ export class PlanController {
           total_days: Number(total_days || totalDays) || 2,
           total_budget: Number(total_budget || totalBudget) || 0,
           actual_cost: Number(actual_cost || actualCost) || 0,
-          status: 'COMPLETED',
+          status: status || 'COMPLETED',
           strategy_used: strategy_used || strategyUsed || 'DIRECT_JSON',
-          plan_data: rawPlanData
+          plan_data: rawPlanData,
+          is_public: isPublicBool,
+          share_token: finalShareToken
         }
       });
 
@@ -120,7 +135,7 @@ export class PlanController {
   }
 
   /**
-   * Lấy danh sách các chuyến đi đã lưu của user hiện tại
+   * Lấy danh sách các chuyến đi đã lưu của user hiện tại (mới nhất xếp trước)
    */
   async getMyPlans(req, res, next) {
     try {
@@ -141,6 +156,7 @@ export class PlanController {
           actual_cost: true,
           status: true,
           strategy_used: true,
+          share_token: true,
           is_public: true,
           created_at: true,
           updated_at: true
@@ -161,33 +177,40 @@ export class PlanController {
    */
   async getPlanById(req, res, next) {
     try {
-      const planId = String(req.params.planId || req.params.id);
-      const currentUserId = req.user?.sub || req.user?.id;
-
-      if (!planId) {
-        return res.status(400).json({
-          success: false,
-          error: { message: 'ID lịch trình không hợp lệ' }
-        });
-      }
-
-      const plan = await prisma.savedPlan.findUnique({
-        where: { id: planId }
-      });
-
+      // Ưu tiên bản ghi đã được checkOwner nạp sẵn
+      let plan = req.plan;
       if (!plan) {
-        return res.status(404).json({
-          success: false,
-          error: { message: 'Không tìm thấy lịch trình này' }
-        });
-      }
+        const planId = String(req.params.planId || req.params.id);
+        const currentUserId = req.user?.sub || req.user?.id;
 
-      // Kiểm tra quyền sở hữu
-      if (plan.user_id !== currentUserId && req.user?.role !== 'ADMIN') {
-        return res.status(403).json({
-          success: false,
-          error: { message: 'Bạn không có quyền truy cập lịch trình này' }
+        if (!planId) {
+          return res.status(400).json({
+            success: false,
+            message: 'ID lịch trình không hợp lệ',
+            error: { message: 'ID lịch trình không hợp lệ' }
+          });
+        }
+
+        plan = await prisma.savedPlan.findUnique({
+          where: { id: planId }
         });
+
+        if (!plan) {
+          return res.status(404).json({
+            success: false,
+            message: 'Không tìm thấy lịch trình này',
+            error: { message: 'Không tìm thấy lịch trình này' }
+          });
+        }
+
+        // Kiểm tra quyền sở hữu
+        if (plan.user_id !== currentUserId && req.user?.role !== 'ADMIN') {
+          return res.status(403).json({
+            success: false,
+            message: 'Bạn không có quyền truy cập lịch trình này',
+            error: { message: 'Bạn không có quyền truy cập lịch trình này' }
+          });
+        }
       }
 
       return res.status(200).json({
@@ -207,40 +230,136 @@ export class PlanController {
       const planId = String(req.params.planId || req.params.id);
       const currentUserId = req.user?.sub || req.user?.id;
 
-      if (!planId) {
+      let plan = req.plan;
+      if (!plan) {
+        if (!planId) {
+          return res.status(400).json({
+            success: false,
+            message: 'ID lịch trình không hợp lệ',
+            error: { message: 'ID lịch trình không hợp lệ' }
+          });
+        }
+
+        plan = await prisma.savedPlan.findUnique({
+          where: { id: planId }
+        });
+
+        if (!plan) {
+          return res.status(404).json({
+            success: false,
+            message: 'Không tìm thấy lịch trình để xóa',
+            error: { message: 'Không tìm thấy lịch trình để xóa' }
+          });
+        }
+
+        if (plan.user_id !== currentUserId && req.user?.role !== 'ADMIN') {
+          return res.status(403).json({
+            success: false,
+            message: 'Bạn không có quyền xóa lịch trình này',
+            error: { message: 'Bạn không có quyền xóa lịch trình này' }
+          });
+        }
+      }
+
+      await prisma.savedPlan.delete({
+        where: { id: plan.id }
+      });
+
+      logger.info(`[PlanController] Đã xóa lịch trình #${plan.id} của user ${currentUserId}`);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Đã xóa lịch trình thành công'
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * Cập nhật thông tin lịch trình (đổi tên, trạng thái, bật/tắt chia sẻ)
+   */
+  async updatePlan(req, res, next) {
+    try {
+      const planId = String(req.params.planId || req.params.id);
+      const currentUserId = req.user?.sub || req.user?.id;
+
+      let plan = req.plan;
+      if (!plan) {
+        plan = await prisma.savedPlan.findUnique({ where: { id: planId } });
+        if (!plan) {
+          return res.status(404).json({ success: false, message: 'Không tìm thấy lịch trình này' });
+        }
+        if (plan.user_id !== currentUserId && req.user?.role !== 'ADMIN') {
+          return res.status(403).json({ success: false, message: 'Bạn không có quyền chỉnh sửa lịch trình này' });
+        }
+      }
+
+      const updateData = {};
+      if (req.body.title !== undefined) updateData.title = String(req.body.title).trim();
+      if (req.body.status !== undefined) updateData.status = req.body.status;
+      if (req.body.is_public !== undefined || req.body.isPublic !== undefined) {
+        const isPublic = Boolean(req.body.is_public ?? req.body.isPublic);
+        updateData.is_public = isPublic;
+        if (isPublic && !plan.share_token) {
+          updateData.share_token = crypto.randomBytes(16).toString('hex');
+        }
+      }
+
+      const updated = await prisma.savedPlan.update({
+        where: { id: plan.id },
+        data: updateData
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: 'Cập nhật lịch trình thành công!',
+        data: updated
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * API công khai xem lịch trình chia sẻ qua shareToken
+   */
+  async getPublicPlanByShareToken(req, res, next) {
+    try {
+      const { shareToken } = req.params;
+      if (!shareToken) {
         return res.status(400).json({
           success: false,
-          error: { message: 'ID lịch trình không hợp lệ' }
+          message: 'Mã chia sẻ không hợp lệ'
         });
       }
 
-      const plan = await prisma.savedPlan.findUnique({
-        where: { id: planId }
+      const plan = await prisma.savedPlan.findFirst({
+        where: {
+          share_token: shareToken,
+          is_public: true
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              avatar_url: true
+            }
+          }
+        }
       });
 
       if (!plan) {
         return res.status(404).json({
           success: false,
-          error: { message: 'Không tìm thấy lịch trình để xóa' }
+          message: 'Lịch trình không tồn tại hoặc chưa được chia sẻ công khai!'
         });
       }
-
-      if (plan.user_id !== currentUserId && req.user?.role !== 'ADMIN') {
-        return res.status(403).json({
-          success: false,
-          error: { message: 'Bạn không có quyền xóa lịch trình này' }
-        });
-      }
-
-      await prisma.savedPlan.delete({
-        where: { id: planId }
-      });
-
-      logger.info(`[PlanController] Đã xóa lịch trình #${planId} của user ${currentUserId}`);
 
       return res.status(200).json({
         success: true,
-        message: 'Đã xóa lịch trình thành công'
+        data: plan
       });
     } catch (error) {
       next(error);

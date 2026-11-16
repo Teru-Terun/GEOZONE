@@ -8,6 +8,8 @@
     "dev": "node --watch src/server.js",
     "start": "node src/server.js",
     "test:auth": "node test/auth.test.js",
+    "test:business": "node test/business_apis.test.js",
+    "test": "node test/auth.test.js && node test/business_apis.test.js",
     "prisma:generate": "npx prisma generate",
     "prisma:migrate": "npx prisma migrate dev",
     "db:seed": "node ../data/seed/seed.js"

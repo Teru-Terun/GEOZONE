@@ -137,6 +137,17 @@ async function main() {
     console.log(`✅ Đã nạp thành công ${places.length} địa điểm du lịch.`);
   }
 
+  // Đồng bộ lại Sequence trong PostgreSQL sau khi nạp dữ liệu với ID chỉ định trước
+  try {
+    await prisma.$executeRawUnsafe(`SELECT setval('places_id_seq', (SELECT COALESCE(MAX(id), 1) FROM places));`);
+    await prisma.$executeRawUnsafe(`SELECT setval('zones_id_seq', (SELECT COALESCE(MAX(id), 1) FROM zones));`);
+    await prisma.$executeRawUnsafe(`SELECT setval('tags_id_seq', (SELECT COALESCE(MAX(id), 1) FROM tags));`);
+    await prisma.$executeRawUnsafe(`SELECT setval('zone_distances_id_seq', (SELECT COALESCE(MAX(id), 1) FROM zone_distances));`);
+    console.log('✅ Đã đồng bộ các sequence auto-increment trong PostgreSQL.');
+  } catch (seqError) {
+    console.warn('⚠️ Cảnh báo đồng bộ sequence:', seqError.message);
+  }
+
   console.log('🎉 Hoàn tất quá trình seed database GeoZone!');
 }
 
