@@ -44,23 +44,25 @@ Tài liệu đặc tả hợp đồng giao tiếp API (API Contract Documentatio
 - [7. AI Travel Engine (Sinh & Hoán Đổi Lịch Trình Tự Động)](#7-ai-travel-engine)
   - [`POST /api/v1/ai/generate-plan`](#post-apiv1aigenerate-plan)
   - [`POST /api/v1/ai/swap-place`](#post-apiv1aiswap-place)
-- [8. Itineraries Management (Quản Lý Lịch Trình Đã Lưu) [Kế hoạch]](#8-itineraries-management-kế-hoạch)
-  - [`POST /api/v1/plans`](#post-apiv1plans-kế-hoạch)
-  - [`GET /api/v1/plans`](#get-apiv1plans-kế-hoạch)
-  - [`GET /api/v1/plans/:planId`](#get-apiv1plansplanid-kế-hoạch)
-  - [`DELETE /api/v1/plans/:planId`](#delete-apiv1plansplanid-kế-hoạch)
-  - [`GET /api/v1/plans/share/:shareToken`](#get-apiv1planssharesharetoken-kế-hoạch)
-- [9. User Favorites (Địa Điểm Yêu Thích) [Kế hoạch]](#9-user-favorites-kế-hoạch)
-  - [`GET /api/v1/users/me/favorites`](#get-apiv1usersmefavorites-kế-hoạch)
-  - [`POST /api/v1/users/me/favorites`](#post-apiv1usersmefavorites-kế-hoạch)
-  - [`DELETE /api/v1/users/me/favorites/:placeId`](#delete-apiv1usersmefavoritesplaceid-kế-hoạch)
-- [10. Catalog Administration (Quản Trị Danh Mục Địa Điểm & Vùng) [Kế hoạch]](#10-catalog-administration-kế-hoạch)
-  - [`POST /api/v1/places`](#post-apiv1places-kế-hoạch)
-  - [`PATCH /api/v1/places/:placeId`](#patch-apiv1placesplaceid-kế-hoạch)
-  - [`DELETE /api/v1/places/:placeId`](#delete-apiv1placesplaceid-kế-hoạch)
-  - [`POST /api/v1/zones`](#post-apiv1zones-kế-hoạch)
-  - [`PATCH /api/v1/zones/:zoneId`](#patch-apiv1zoneszoneid-kế-hoạch)
-  - [`DELETE /api/v1/zones/:zoneId`](#delete-apiv1zoneszoneid-kế-hoạch)
+- [8. Itineraries Management (Quản Lý Lịch Trình Đã Lưu)](#8-itineraries-management)
+  - [`POST /api/v1/plans`](#post-apiv1plans)
+  - [`GET /api/v1/plans`](#get-apiv1plans)
+  - [`GET /api/v1/plans/:planId`](#get-apiv1plansplanid)
+  - [`PATCH /api/v1/plans/:planId`](#patch-apiv1plansplanid)
+  - [`DELETE /api/v1/plans/:planId`](#delete-apiv1plansplanid)
+  - [`GET /api/v1/plans/share/:shareToken`](#get-apiv1planssharesharetoken)
+- [9. User Favorites (Địa Điểm Yêu Thích)](#9-user-favorites)
+  - [`GET /api/v1/users/me/favorites`](#get-apiv1usersmefavorites)
+  - [`POST /api/v1/users/me/favorites`](#post-apiv1usersmefavorites)
+  - [`DELETE /api/v1/users/me/favorites/:placeId`](#delete-apiv1usersmefavoritesplaceid)
+- [10. Catalog Administration (Quản Trị Danh Mục Địa Điểm & Vùng)](#10-catalog-administration)
+  - [`POST /api/v1/places`](#post-apiv1places)
+  - [`PATCH /api/v1/places/:placeId`](#patch-apiv1placesplaceid)
+  - [`DELETE /api/v1/places/:placeId`](#delete-apiv1placesplaceid)
+  - [`GET /api/v1/zones/:zoneId`](#get-apiv1zoneszoneid)
+  - [`POST /api/v1/zones`](#post-apiv1zones)
+  - [`PATCH /api/v1/zones/:zoneId`](#patch-apiv1zoneszoneid)
+  - [`DELETE /api/v1/zones/:zoneId`](#delete-apiv1zoneszoneid)
 - [11. RAG Knowledge Base Management [Kế hoạch]](#11-rag-knowledge-base-management-kế-hoạch)
   - [`GET /api/v1/knowledge`](#get-apiv1knowledge-kế-hoạch)
   - [`POST /api/v1/knowledge`](#post-apiv1knowledge-kế-hoạch)
@@ -743,17 +745,17 @@ HTTP status: `200 OK`. Trả về `404 Not Found` nếu không còn địa đi�
 
 ---
 
-# 8. Itineraries Management [Kế hoạch]
+# 8. Itineraries Management
 
-Nhóm API quản lý việc lưu trữ, truy xuất và chia sẻ lịch trình chính thức của người dùng trong CSDL PostgreSQL (bảng `saved_plans`).
+Nhóm API quản lý việc lưu trữ, truy xuất và chia sẻ lịch trình chính thức của người dùng trong CSDL PostgreSQL (bảng `saved_plans`). Toàn bộ đã được triển khai và kiểm thử 100%.
 
-# POST /api/v1/plans [Kế hoạch]
+# POST /api/v1/plans
 
 Tạo mới / Lưu một lịch trình du lịch vào CSDL. 
 
 - **Phương thức:** `POST`
 - **Quyền yêu cầu:** `USER` (Bắt buộc Bearer Access Token).
-- **Cơ chế:** Backend tự động trích xuất `req.user.sub` làm `user_id` sở hữu, không cho phép giả mạo `userId` từ body.
+- **Cơ chế:** Backend tự động trích xuất `req.user.sub` làm `user_id` sở hữu, không cho phép giả mạo `userId` từ body. Tự động sinh `share_token` ngẫu nhiên nếu `is_public: true` mà không truyền mã trước.
 
 Request body:
 
@@ -765,6 +767,7 @@ Request body:
   "totalBudget": 1500000,
   "actualCost": 160000,
   "strategyUsed": "DIRECT_JSON",
+  "is_public": false,
   "planData": {
     "days": [...]
   }
@@ -779,27 +782,31 @@ Response thành công:
   "message": "Lưu lịch trình thành công!",
   "data": {
     "id": "e9b5f928-860d-4076-a0e2-6323cf106ec3",
-    "userId": "550e8400-e29b-41d4-a716-446655440000",
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
     "title": "Chuyến đi Đà Nẵng 2 ngày cùng bạn thân",
     "city": "Da Nang",
-    "totalDays": 2,
-    "totalBudget": "1500000.00",
-    "actualCost": "160000.00",
+    "total_days": 2,
+    "total_budget": "1500000.00",
+    "actual_cost": "160000.00",
     "status": "COMPLETED",
-    "createdAt": "2026-11-12T00:00:00.000Z"
+    "strategy_used": "DIRECT_JSON",
+    "share_token": null,
+    "is_public": false,
+    "created_at": "2026-11-12T00:00:00.000Z",
+    "updated_at": "2026-11-12T00:00:00.000Z"
   }
 }
 ```
 
-HTTP status: `201 Created`
+HTTP status: `201 Created`. `400 Bad Request` nếu thiếu `planData`.
 
-# GET /api/v1/plans [Kế hoạch]
+# GET /api/v1/plans
 
 Lấy danh sách các lịch trình du lịch đã lưu của **chính người dùng đang đăng nhập**.
 
 - **Phương thức:** `GET`
 - **Quyền yêu cầu:** `USER` (Bắt buộc Bearer Access Token).
-- **Cơ chế:** Backend tự động lọc theo `where: { user_id: req.user.sub }`, sắp xếp theo thời gian tạo mới nhất.
+- **Cơ chế:** Backend tự động lọc theo `where: { user_id: req.user.sub }`, sắp xếp theo thời gian tạo mới nhất (`created_at: 'desc'`).
 
 Response thành công:
 
@@ -811,10 +818,15 @@ Response thành công:
       "id": "e9b5f928-860d-4076-a0e2-6323cf106ec3",
       "title": "Chuyến đi Đà Nẵng 2 ngày cùng bạn thân",
       "city": "Da Nang",
-      "totalDays": 2,
-      "totalBudget": "1500000.00",
-      "actualCost": "160000.00",
-      "createdAt": "2026-11-12T00:00:00.000Z"
+      "total_days": 2,
+      "total_budget": "1500000.00",
+      "actual_cost": "160000.00",
+      "status": "COMPLETED",
+      "strategy_used": "DIRECT_JSON",
+      "share_token": null,
+      "is_public": false,
+      "created_at": "2026-11-12T00:00:00.000Z",
+      "updated_at": "2026-11-12T00:00:00.000Z"
     }
   ]
 }
@@ -822,49 +834,66 @@ Response thành công:
 
 HTTP status: `200 OK`
 
-# GET /api/v1/plans/:planId [Kế hoạch]
+# GET /api/v1/plans/:planId
 
 Xem chi tiết toàn bộ dữ liệu JSON của 1 lịch trình đã lưu.
 
 - **Phương thức:** `GET`
-- **Quyền yêu cầu:** `USER` (Người sở hữu lịch trình hoặc `ADMIN`).
-- **Middleware:** `verifyToken`, `validateUuidParam('planId')`, `checkOwner`.
+- **Quyền yêu cầu:** `USER` (Chính chủ sở hữu lịch trình hoặc `ADMIN`).
+- **Middleware:** `verifyToken`, `verifyActiveUser`, `validateUuidParam('planId')`, `checkOwner`.
 
-HTTP status: `200 OK`. `403` nếu không có quyền, `404` nếu không tìm thấy.
+HTTP status: `200 OK`. `400` nếu UUID sai định dạng, `403` nếu không có quyền truy cập, `404` nếu không tìm thấy.
 
-# DELETE /api/v1/plans/:planId [Kế hoạch]
+# PATCH /api/v1/plans/:planId
+
+Cập nhật thông tin lịch trình (đổi tiêu đề, trạng thái, hoặc bật/tắt chia sẻ công khai).
+
+- **Phương thức:** `PATCH`
+- **Quyền yêu cầu:** `USER` (Chính chủ sở hữu lịch trình hoặc `ADMIN`).
+- **Middleware:** `verifyToken`, `verifyActiveUser`, `validateUuidParam('planId')`, `checkOwner`.
+- **Request body:**
+```json
+{
+  "title": "Tên chuyến đi mới",
+  "is_public": true
+}
+```
+
+HTTP status: `200 OK`. `403` nếu không có quyền sửa, `404` nếu không tìm thấy.
+
+# DELETE /api/v1/plans/:planId
 
 Xóa 1 lịch trình đã lưu khỏi tài khoản người dùng.
 
 - **Phương thức:** `DELETE`
-- **Quyền yêu cầu:** `USER` (Người sở hữu lịch trình hoặc `ADMIN`).
-- **Middleware:** `verifyToken`, `validateUuidParam('planId')`, `checkOwner`.
+- **Quyền yêu cầu:** `USER` (Chính chủ sở hữu lịch trình hoặc `ADMIN`).
+- **Middleware:** `verifyToken`, `verifyActiveUser`, `validateUuidParam('planId')`, `checkOwner`.
 
-HTTP status: `200 OK`
+HTTP status: `200 OK`. `403` nếu không có quyền xóa, `404` nếu lịch trình không tồn tại.
 
-# GET /api/v1/plans/share/:shareToken [Kế hoạch]
+# GET /api/v1/plans/share/:shareToken
 
 Xem chi tiết lịch trình công khai thông qua mã token chia sẻ (không yêu cầu đăng nhập).
 
 - **Phương thức:** `GET`
 - **Quyền yêu cầu:** Public
-- **Cơ chế:** Lọc theo `where: { share_token: shareToken, is_public: true }`.
+- **Cơ chế:** Lọc theo `where: { share_token: shareToken, is_public: true }`, nạp kèm thông tin người tạo (`user`).
 
 HTTP status: `200 OK`. `404` nếu link không tồn tại hoặc đã bị tắt chia sẻ.
 
 ---
 
-# 9. User Favorites [Kế hoạch]
+# 9. User Favorites
 
-Nhóm API quản lý các địa điểm du lịch yêu thích của người dùng đang đăng nhập.
+Nhóm API quản lý các địa điểm du lịch yêu thích của người dùng đang đăng nhập. Đã hoàn thiện và kiểm thử.
 
-# GET /api/v1/users/me/favorites [Kế hoạch]
+# GET /api/v1/users/me/favorites
 
-Lấy danh sách các địa điểm mà người dùng hiện tại đã đánh dấu yêu thích (kèm thông tin chi tiết của địa điểm).
+Lấy danh sách các địa điểm mà người dùng hiện tại đã đánh dấu yêu thích (kèm thông tin chi tiết của địa điểm, zone và tags).
 
 - **Phương thức:** `GET`
 - **Quyền yêu cầu:** `USER` (Bắt buộc Bearer Access Token).
-- **Database:** Bảng `user_favorites` JOIN `places`.
+- **Database:** Bảng `user_favorites` JOIN `places` -> `zones`, `place_tags`.
 
 Response thành công:
 
@@ -873,14 +902,20 @@ Response thành công:
   "success": true,
   "data": [
     {
-      "favoriteId": "6c361922-a9b8-4c8d-b7eb-d1be8b7762bb",
-      "placeId": 1,
-      "name": "Chợ Cồn",
-      "city": "Da Nang",
-      "zoneId": 1,
-      "estimatedCost": 100000,
-      "rating": 4.5,
-      "createdAt": "2026-11-12T00:00:00.000Z"
+      "id": "6c361922-a9b8-4c8d-b7eb-d1be8b7762bb",
+      "user_id": "550e8400-e29b-41d4-a716-446655440000",
+      "place_id": 1,
+      "created_at": "2026-11-12T00:00:00.000Z",
+      "place": {
+        "id": 1,
+        "name": "Chợ Cồn",
+        "city": "Da Nang",
+        "zoneId": 1,
+        "estimatedCost": "100000.00",
+        "rating": "4.5",
+        "zone": { "id": 1, "code": "Z1", "name": "Trung tâm Hải Châu" },
+        "placeTags": [{ "tag": { "id": 1, "name": "food" } }]
+      }
     }
   ]
 }
@@ -888,13 +923,13 @@ Response thành công:
 
 HTTP status: `200 OK`
 
-# POST /api/v1/users/me/favorites [Kế hoạch]
+# POST /api/v1/users/me/favorites
 
 Thêm một địa điểm vào danh sách yêu thích của người dùng hiện tại.
 
 - **Phương thức:** `POST`
 - **Quyền yêu cầu:** `USER` (Bắt buộc Bearer Access Token).
-- **Request body:** Gửi `placeId` trong JSON body:
+- **Request body:** Gửi `placeId` (số nguyên) trong JSON body:
 
 ```json
 {
@@ -910,16 +945,16 @@ Response thành công:
   "message": "Đã thêm vào danh sách yêu thích!",
   "data": {
     "id": "6c361922-a9b8-4c8d-b7eb-d1be8b7762bb",
-    "userId": "550e8400-e29b-41d4-a716-446655440000",
-    "placeId": 1,
-    "createdAt": "2026-11-12T00:00:00.000Z"
+    "user_id": "550e8400-e29b-41d4-a716-446655440000",
+    "place_id": 1,
+    "created_at": "2026-11-12T00:00:00.000Z"
   }
 }
 ```
 
-HTTP status: `201 Created`. Trả về `409 Conflict` nếu địa điểm này đã có trong danh sách yêu thích.
+HTTP status: `201 Created`. `404 Not Found` nếu địa điểm không tồn tại. `409 Conflict` nếu địa điểm này đã có trong danh sách yêu thích.
 
-# DELETE /api/v1/users/me/favorites/:placeId [Kế hoạch]
+# DELETE /api/v1/users/me/favorites/:placeId
 
 Xóa một địa điểm khỏi danh sách yêu thích của người dùng hiện tại.
 
@@ -940,68 +975,86 @@ HTTP status: `200 OK`. `404 Not Found` nếu địa điểm chưa từng đượ
 
 ---
 
-# 10. Catalog Administration [Kế hoạch]
+# 10. Catalog Administration
 
 Quản trị toàn diện danh mục Địa điểm du lịch và Phân vùng Zone dành riêng cho Quản trị viên (`ADMIN`). 
 
 > [!NOTE]
 > Không sử dụng namespace dư thừa `/admin/`. Các route này dùng chung URL với tài nguyên gốc (`/places`, `/zones`), trong đó phương thức `GET` là công khai cho mọi người, còn các phương thức ghi (`POST`, `PATCH`, `DELETE`) được bảo vệ bằng middleware `verifyToken` + `verifyAdmin`.
 
-# POST /api/v1/places [Kế hoạch]
+# POST /api/v1/places
 
 Thêm mới một địa điểm du lịch vào hệ thống.
 
 - **Phương thức:** `POST`
 - **Quyền yêu cầu:** `ADMIN` (Bearer Token)
-- **Request body:** Thông tin địa điểm (`name`, `city`, `zoneId`, `address`, `estimatedCost`, `duration`, `openingTime`, `closingTime`, `latitude`, `longitude`, `tags`).
+- **Request body:** Thông tin địa điểm (`name`, `city`, `zoneId`, `address`, `estimatedCost`, `duration`, `openingTime`, `closingTime`, `latitude`, `longitude`, `popularity`, `imageUrl`, `rating`, `shortDesc`, `tags`).
 
-HTTP status: `201 Created`
+HTTP status: `201 Created`. `400 Bad Request` nếu thiếu `name` hoặc `zoneId`. `404` nếu `zoneId` không tồn tại.
 
-# PATCH /api/v1/places/:placeId [Kế hoạch]
+# PATCH /api/v1/places/:placeId
 
 Cập nhật thông tin của một địa điểm du lịch.
 
 - **Phương thức:** `PATCH`
 - **Quyền yêu cầu:** `ADMIN` (Bearer Token)
 
-HTTP status: `200 OK`
+HTTP status: `200 OK`. `404 Not Found` nếu địa điểm không tồn tại.
 
-# DELETE /api/v1/places/:placeId [Kế hoạch]
+# DELETE /api/v1/places/:placeId
 
 Xóa một địa điểm du lịch khỏi hệ thống.
 
 - **Phương thức:** `DELETE`
 - **Quyền yêu cầu:** `ADMIN` (Bearer Token)
 
-HTTP status: `200 OK`
+HTTP status: `200 OK`. `404 Not Found` nếu không tìm thấy địa điểm.
 
-# POST /api/v1/zones [Kế hoạch]
+# GET /api/v1/zones/:zoneId
+
+Chi tiết một phân vùng kèm danh sách các địa điểm thuộc phân vùng đó.
+
+- **Phương thức:** `GET`
+- **Quyền yêu cầu:** Public
+
+HTTP status: `200 OK`. `404 Not Found` nếu không tìm thấy phân vùng.
+
+# POST /api/v1/zones
 
 Tạo một phân vùng địa lý mới tại thành phố du lịch.
 
 - **Phương thức:** `POST`
 - **Quyền yêu cầu:** `ADMIN` (Bearer Token)
-- **Request body:** `{ "code": "Z6", "name": "Bà Nà Hills", "description": "...", "centerLat": 15.998, "centerLng": 107.996 }`
+- **Request body:**
+```json
+{
+  "code": "Z6",
+  "name": "Bà Nà Hills",
+  "description": "Khu du lịch sinh thái và nghỉ dưỡng núi cao",
+  "centerLat": 15.998,
+  "centerLng": 107.996
+}
+```
 
-HTTP status: `201 Created`
+HTTP status: `201 Created`. `400 Bad Request` nếu thiếu `code` hoặc `name`. `409 Conflict` nếu mã `code` đã tồn tại.
 
-# PATCH /api/v1/zones/:zoneId [Kế hoạch]
+# PATCH /api/v1/zones/:zoneId
 
 Cập nhật thông tin phân vùng địa lý.
 
 - **Phương thức:** `PATCH`
 - **Quyền yêu cầu:** `ADMIN` (Bearer Token)
 
-HTTP status: `200 OK`
+HTTP status: `200 OK`. `404 Not Found` nếu không tìm thấy. `409 Conflict` nếu cập nhật mã `code` trùng với zone khác.
 
-# DELETE /api/v1/zones/:zoneId [Kế hoạch]
+# DELETE /api/v1/zones/:zoneId
 
-Xóa phân vùng địa lý (chỉ xóa được nếu Zone không còn chứa địa điểm nào).
+Xóa phân vùng địa lý (chỉ xóa được nếu Zone không còn chứa địa điểm nào, đảm bảo toàn vẹn dữ liệu).
 
 - **Phương thức:** `DELETE`
 - **Quyền yêu cầu:** `ADMIN` (Bearer Token)
 
-HTTP status: `200 OK`
+HTTP status: `200 OK`. `400 Bad Request` nếu Zone vẫn đang chứa địa điểm. `404 Not Found` nếu không tìm thấy.
 
 ---
 
@@ -1057,25 +1110,27 @@ HTTP status: `200 OK`
 | **User** | `/api/v1/users/:userId` | `PATCH` | ✅ **Đã hoàn thiện** | Owner / `ADMIN` |
 | **User** | `/api/v1/users/:userId/status` | `PATCH` | ✅ **Đã hoàn thiện** | `ADMIN` |
 | **Zones** | `/api/v1/zones` | `GET` | ✅ **Đã hoàn thiện** | Public |
-| **Places** | `/api/v1/places` | `GET` | ✅ **Đã hoàn thiện** | Public (Filter query) |
-| **Places** | `/api/v1/places/:placeId` | `GET` | ⏳ *Kế hoạch Tuần 3* | Public |
+| **Zones** | `/api/v1/zones/:zoneId` | `GET` | ✅ **Đã hoàn thiện** | Public |
+| **Places** | `/api/v1/places` | `GET` | ✅ **Đã hoàn thiện** | Public (Filter query: ?city, ?zoneId, ?tags) |
+| **Places** | `/api/v1/places/:placeId` | `GET` | ✅ **Đã hoàn thiện** | Public |
 | **Tags** | `/api/v1/tags` | `GET` | ✅ **Đã hoàn thiện** | Public |
 | **AI Engine** | `/api/v1/ai/generate-plan` | `POST` | ✅ **Đã hoàn thiện** | Public / Guest |
 | **AI Engine** | `/api/v1/ai/swap-place` | `POST` | ✅ **Đã hoàn thiện** | Public / Guest |
-| **Plans** | `/api/v1/plans` | `POST` | ⏳ *Kế hoạch Tuần 3* | Logged-in User |
-| **Plans** | `/api/v1/plans` | `GET` | ⏳ *Kế hoạch Tuần 3* | Logged-in User |
-| **Plans** | `/api/v1/plans/:planId` | `GET` | ⏳ *Kế hoạch Tuần 3* | Owner / `ADMIN` |
-| **Plans** | `/api/v1/plans/:planId` | `DELETE` | ⏳ *Kế hoạch Tuần 3* | Owner / `ADMIN` |
-| **Plans** | `/api/v1/plans/share/:shareToken` | `GET` | ⏳ *Kế hoạch Tuần 4* | Public |
-| **Favorites**| `/api/v1/users/me/favorites` | `GET` | ⏳ *Kế hoạch Tuần 4* | Logged-in User |
-| **Favorites**| `/api/v1/users/me/favorites` | `POST` | ⏳ *Kế hoạch Tuần 4* | Logged-in User |
-| **Favorites**| `/api/v1/users/me/favorites/:placeId` | `DELETE` | ⏳ *Kế hoạch Tuần 4* | Logged-in User |
-| **Admin** | `/api/v1/places` | `POST` | ⏳ *Kế hoạch Tuần 4* | `ADMIN` |
-| **Admin** | `/api/v1/places/:placeId` | `PATCH` | ⏳ *Kế hoạch Tuần 4* | `ADMIN` |
-| **Admin** | `/api/v1/places/:placeId` | `DELETE` | ⏳ *Kế hoạch Tuần 4* | `ADMIN` |
-| **Admin** | `/api/v1/zones` | `POST` | ⏳ *Kế hoạch Tuần 4* | `ADMIN` |
-| **Admin** | `/api/v1/zones/:zoneId` | `PATCH` | ⏳ *Kế hoạch Tuần 4* | `ADMIN` |
-| **Admin** | `/api/v1/zones/:zoneId` | `DELETE` | ⏳ *Kế hoạch Tuần 4* | `ADMIN` |
+| **Plans** | `/api/v1/plans` | `POST` | ✅ **Đã hoàn thiện** | Logged-in User |
+| **Plans** | `/api/v1/plans` | `GET` | ✅ **Đã hoàn thiện** | Logged-in User |
+| **Plans** | `/api/v1/plans/:planId` | `GET` | ✅ **Đã hoàn thiện** | Owner / `ADMIN` |
+| **Plans** | `/api/v1/plans/:planId` | `PATCH` | ✅ **Đã hoàn thiện** | Owner / `ADMIN` |
+| **Plans** | `/api/v1/plans/:planId` | `DELETE` | ✅ **Đã hoàn thiện** | Owner / `ADMIN` |
+| **Plans** | `/api/v1/plans/share/:shareToken` | `GET` | ✅ **Đã hoàn thiện** | Public |
+| **Favorites**| `/api/v1/users/me/favorites` | `GET` | ✅ **Đã hoàn thiện** | Logged-in User |
+| **Favorites**| `/api/v1/users/me/favorites` | `POST` | ✅ **Đã hoàn thiện** | Logged-in User |
+| **Favorites**| `/api/v1/users/me/favorites/:placeId` | `DELETE` | ✅ **Đã hoàn thiện** | Logged-in User |
+| **Admin** | `/api/v1/places` | `POST` | ✅ **Đã hoàn thiện** | `ADMIN` |
+| **Admin** | `/api/v1/places/:placeId` | `PATCH` | ✅ **Đã hoàn thiện** | `ADMIN` |
+| **Admin** | `/api/v1/places/:placeId` | `DELETE` | ✅ **Đã hoàn thiện** | `ADMIN` |
+| **Admin** | `/api/v1/zones` | `POST` | ✅ **Đã hoàn thiện** | `ADMIN` |
+| **Admin** | `/api/v1/zones/:zoneId` | `PATCH` | ✅ **Đã hoàn thiện** | `ADMIN` |
+| **Admin** | `/api/v1/zones/:zoneId` | `DELETE` | ✅ **Đã hoàn thiện** | `ADMIN` |
 | **RAG** | `/api/v1/knowledge` | `GET` | ⏳ *Kế hoạch Tuần 4* | Public |
 | **RAG** | `/api/v1/knowledge` | `POST` | ⏳ *Kế hoạch Tuần 4* | `ADMIN` |
 | **RAG** | `/api/v1/knowledge/:id` | `DELETE` | ⏳ *Kế hoạch Tuần 4* | `ADMIN` |

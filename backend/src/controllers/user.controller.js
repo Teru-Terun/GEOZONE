@@ -317,10 +317,32 @@ export const addFavorite = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Địa điểm không tồn tại!' });
     }
 
+    // Kiểm tra xem địa điểm đã được thêm trước đó chưa
+    const existing = await prisma.userFavorite.findUnique({
+      where: {
+        user_id_place_id: {
+          user_id: req.user.sub,
+          place_id: placeId
+        }
+      }
+    });
+
+    if (existing) {
+      return res.status(409).json({ success: false, message: 'Địa điểm này đã có trong danh sách yêu thích!' });
+    }
+
     const favorite = await prisma.userFavorite.create({
       data: {
         user_id: req.user.sub,
         place_id: placeId
+      },
+      include: {
+        place: {
+          include: {
+            zone: true,
+            placeTags: { include: { tag: true } }
+          }
+        }
       }
     });
 
